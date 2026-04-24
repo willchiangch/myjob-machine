@@ -1,0 +1,11 @@
+﻿{
+  "skill_name": "si-firefighting-evaluator",
+  "evals": [
+    {
+      "id": 1,
+      "name": "retail-cloud-firefighting",
+      "prompt": "專案：大型零售會員點數上雲。剩 2 週上線，壓測垮掉，地端 ERP API 太慢。方案 A：Kafka 重構（延 4 週，罰 45 萬，加 40 萬人成本）。方案 B：批次同步（準時，但客戶可能不給驗收）。請以 SI 主管視角評估並給出方案 C。",
+      "expected_output": "報告應明確打槍方案 A，指出其擴大虧損；對方案 B 進行改良，轉向收集客戶 ERP 缺陷數據作為談判籌碼，將降級包裝為安全措施，並強勢要求結案領取 900 萬尾款。"
+    }
+  ]
+}
