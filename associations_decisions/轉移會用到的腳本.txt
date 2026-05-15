@@ -1,0 +1,100 @@
+SQL_SA=$(gcloud sql instances describe khcpa-admin \
+  --project="acc-khcpa-uat" \
+  --format="value(serviceAccountEmailAddress)")
+
+echo "SA: ${SQL_SA}"
+
+gcloud storage buckets add-iam-policy-binding gs://cpa-migration-temp \
+  --member="serviceAccount:${SQL_SA}" \
+  --role="roles/storage.objectAdmin"
+
+echo "等待 IAM 生效..."
+sleep 15
+
+gcloud sql export sql khcpa-admin \
+  gs://cpa-migration-temp/khcpa-uat-$(date +%Y%m%d).sql.gz \
+  --database="khcpa-uat" \
+  --offload \
+  --project="acc-khcpa-uat"
+  
+  
+# 找到新專案SA  
+# 請替換為你的新專案 ID
+export NEW_PROJECT_ID="s1-association-cloud-uat"
+
+NEW_SQL_SA=$(gcloud sql instances describe cpa-cloud-uat \
+  --project="${NEW_PROJECT_ID}" \
+  --format="value(serviceAccountEmailAddress)")
+
+echo "新專案的 SA 是: ${NEW_SQL_SA}"  
+  
+
+# 這一行是在舊專案執行，或是確保你有權限改舊專案的 Bucket IAM
+gcloud storage buckets add-iam-policy-binding gs://cpa-migration-temp \
+  --member="serviceAccount:p138503737287-8a0ez0@gcp-sa-cloud-sql.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin" \
+  --project="acc-khcpa-uat"
+
+  
+  
+  
+  
+export NEW_PROJECT="s1-association-cloud-uat"
+export TARGET_INSTANCE="cpa-cloud-uat"
+export DUMP_FILE="gs://cpa-migration-temp/khcpa-uat-20260428.sql.gz"
+
+# 1. 建立 khcpa 獨立 DB
+gcloud sql databases create khcpa_uat \
+  --instance=${TARGET_INSTANCE} \
+  --project=${NEW_PROJECT}
+
+# 2. 匯入指定的 dump 檔
+gcloud sql import sql ${TARGET_INSTANCE} \
+  ${DUMP_FILE} \
+  --database=khcpa_uat \
+  --project=${NEW_PROJECT}
+  
+# 建立backend_user不然匯入會失敗
+  gcloud sql users create backend_user \
+  --instance=cpa-cloud-uat \
+  --password="wC2hKf%n8>zdX*6x+CoD" \
+  --project=s1-association-cloud-uat
+  
+  # 建立dba_user不然匯入會失敗
+  gcloud sql users create dba_user \
+  --instance=cpa-cloud-uat \
+  --password="zQZ1smGz4wodtMa_Xr41" \
+  --project=s1-association-cloud-uat
+  
+    # 建立query_user不然匯入會失敗
+  gcloud sql users create dba_user \
+  --instance=cpa-cloud-uat \
+  --password="EL&-}N=<(:Cyh5nq" \
+  --project=s1-association-cloud-uat
+ 
+ #建立該db的主要連線帳號 (注意帳號密碼跟舊系統連線關係) 
+ gcloud sql users create khcpa_admin \
+  --instance=cpa-cloud-uat \
+  --password="1qaz2wsx#EDC$RFV" \
+  --project=s1-association-cloud-uat
+  
+gcloud sql users set-password postgres \
+  --instance=cpa-cloud-uat \
+  --password="1qaz2wsx#EDC$RFV" \
+  --project=s1-association-cloud-uat  
+  
+  
+  
+  export NEW_PROJECT="s1-association-cloud-uat"
+export TARGET_INSTANCE="cpa-cloud-uat"
+export DUMP_FILE="gs://cpa-migration-temp/khcpa-uat-20260428.sql.gz"
+
+# 2. 重新匯入 (加上關鍵的 --user=postgres 參數)
+gcloud sql import sql cpa-cloud-uat \
+  gs://cpa-migration-temp/khcpa-uat-20260428.sql.gz \
+  --database=khcpa_uat \
+  --user=khcpa_admin \
+  --project=s1-association-cloud-uat
+  
+# 3. 匯入後要補指令
+GRANT backend_user TO khcpa_admin;
